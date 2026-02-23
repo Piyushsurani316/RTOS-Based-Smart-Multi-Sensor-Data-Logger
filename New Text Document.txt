@@ -1,3 +1,3 @@
 git add .
-git commit -m 'bmp280-mqtt'
+git commit -m '3-sensor-lcd-mqtt'
 git push
