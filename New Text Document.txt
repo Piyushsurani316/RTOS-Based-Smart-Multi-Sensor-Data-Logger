@@ -1,3 +1,11 @@
 git add .
-git commit -m '3-sensor-lcd-mqtt'
+git commit -m 'All in one'
 git push
+
+
+
+Project structure:
+tree /f > project_structure.txt
+
+Get-ChildItem -Recurse -File > file_list.txt
+Get-ChildItem -Recurse -File | Select-Object -ExpandProperty Name > file_list.txt
