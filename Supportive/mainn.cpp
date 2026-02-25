@@ -38,17 +38,19 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // ---------------- Thresholds ----------------
 #define HR_THRESHOLD 120
 #define PRESSURE_THRESHOLD 1020
+uint8_t lcdPage = 0; // Toggle LCD page
 
 // ---------------- Variables ----------------
-uint8_t lcdPage = 0;
 int temperature = 0, pressure = 0;
 int heartRate = 0, spo2 = 0;
 int16_t ax, ay, az, gx, gy, gz;
 
 unsigned long lastPublish = 0;
-const long interval = 2000; // sensor publish every 2 sec
-unsigned long pageTimer = 0;
-const long pageInterval = 2000; // LCD page switch every 2 sec
+const long interval = 2000; // 2 seconds
+int scrollPos = 0;
+// -------- LCD Display --------
+static unsigned long pageTimer = 0;
+const int pageInterval = 2000;   // change page every 2 seconds
 
 // ---------------- WiFi Connect ----------------
 void connectWiFi() {
@@ -98,87 +100,6 @@ void initSD() {
   }
 }
 
-// ---------------- Read Sensors & Publish ----------------
-void readAndPublishSensors() {
-  // -------- Read Sensors --------
-  temperature = (int)bmp.readTemperature();
-  pressure = (int)(bmp.readPressure() / 100.0F);
-  heartRate = (int)pox.getHeartRate();
-  spo2 = (int)pox.getSpO2();
-  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-
-  // -------- Fault Detection --------
-  bool fault = false;
-  if (heartRate > HR_THRESHOLD || pressure > PRESSURE_THRESHOLD) {
-    fault = true;
-    digitalWrite(BUZZER_PIN, HIGH);
-  } else {
-    digitalWrite(BUZZER_PIN, LOW);
-  }
-
-  // -------- MQTT Publish --------
-  JsonDocument doc;
-  doc["temperature"] = temperature;
-  doc["pressure"] = pressure;
-  doc["heartRate"] = heartRate;
-  doc["spo2"] = spo2;
-  doc["ax"] = ax; doc["ay"] = ay; doc["az"] = az;
-  doc["gx"] = gx; doc["gy"] = gy; doc["gz"] = gz;
-  doc["fault"] = fault;
-
-  char buffer[512];
-  serializeJson(doc, buffer);
-  client.publish("esp32/sensor/all", buffer);
-  Serial.println(buffer);
-
-  // -------- SD Logging --------
-  File file = SD.open("/log.csv", FILE_APPEND);
-  if (file) {
-    file.print(millis()); file.print(",");
-    file.print(temperature); file.print(",");
-    file.print(pressure); file.print(",");
-    file.print(heartRate); file.print(",");
-    file.print(spo2); file.print(",");
-    file.print(ax); file.print(",");
-    file.print(ay); file.print(",");
-    file.print(az); file.print(",");
-    file.print(gx); file.print(",");
-    file.print(gy); file.print(",");
-    file.print(gz); file.print(",");
-    file.println(fault ? 1 : 0);
-    file.close();
-  } else {
-    Serial.println("SD Write Error");
-  }
-}
-
-// ---------------- LCD Update ----------------
-void updateLCD() {
-  lcd.clear();
-  if (lcdPage == 0) {
-    lcd.setCursor(0,0);
-    lcd.print("T:"); lcd.print(temperature);
-    lcd.print(" P:"); lcd.print(pressure);
-    lcd.setCursor(0,1);
-    lcd.print("HR:"); lcd.print(heartRate);
-    lcd.print(" S:"); lcd.print(spo2);
-  }
-  else if (lcdPage == 1) {
-    lcd.setCursor(0,0);
-    lcd.print("AX:"); lcd.print(ax);
-    lcd.print(" AY:"); lcd.print(ay);
-    lcd.setCursor(0,1);
-    lcd.print("AZ:"); lcd.print(az);
-  }
-  else if (lcdPage == 2) {
-    lcd.setCursor(0,0);
-    lcd.print("GX:"); lcd.print(gx);
-    lcd.print(" GY:"); lcd.print(gy);
-    lcd.setCursor(0,1);
-    lcd.print("GZ:"); lcd.print(gz);
-  }
-}
-
 // ---------------- Setup ----------------
 void setup() {
   Serial.begin(115200);
@@ -222,19 +143,101 @@ void loop() {
 
   pox.update(); // important
 
-  unsigned long currentMillis = millis();
+  if (millis() - lastPublish >= interval) {
+    lastPublish = millis();
 
-  // -------- LCD Page Update --------
-  if (currentMillis - pageTimer >= pageInterval) {
-    pageTimer = currentMillis;
-    lcdPage++;
-    if (lcdPage > 2) lcdPage = 0; // 3 pages: 0,1,2
-    updateLCD();
-  }
+    // -------- Read Sensors --------
+    temperature = (int)bmp.readTemperature();
+    pressure = (int)(bmp.readPressure() / 100.0F);
+    heartRate = (int)pox.getHeartRate();
+    spo2 = (int)pox.getSpO2();
+    mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-  // -------- Sensor Read & Publish --------
-  if (currentMillis - lastPublish >= interval) {
-    lastPublish = currentMillis;
-    readAndPublishSensors();
-  }
+    // -------- Fault Detection --------
+    bool fault = false;
+    if (heartRate > HR_THRESHOLD || pressure > PRESSURE_THRESHOLD) {
+      fault = true;
+      digitalWrite(BUZZER_PIN, HIGH);
+    } else {
+      digitalWrite(BUZZER_PIN, LOW);
+    }
+
+    // -------- MQTT Publish --------
+    JsonDocument doc;
+    doc["temperature"] = temperature;
+    doc["pressure"] = pressure;
+    doc["heartRate"] = heartRate;
+    doc["spo2"] = spo2;
+    doc["ax"] = ax; doc["ay"] = ay; doc["az"] = az;
+    doc["gx"] = gx; doc["gy"] = gy; doc["gz"] = gz;
+    doc["fault"] = fault;
+
+    char buffer[512];
+    serializeJson(doc, buffer);
+    client.publish("esp32/sensor/all", buffer);
+    Serial.println(buffer);
+
+    // -------- SD Logging --------
+    File file = SD.open("/log.csv", FILE_APPEND);
+    if (file) {
+      file.print(millis()); file.print(",");
+      file.print(temperature); file.print(",");
+      file.print(pressure); file.print(",");
+      file.print(heartRate); file.print(",");
+      file.print(spo2); file.print(",");
+      file.print(ax); file.print(",");
+      file.print(ay); file.print(",");
+      file.print(az); file.print(",");
+      file.print(gx); file.print(",");
+      file.print(gy); file.print(",");
+      file.print(gz); file.print(",");
+      file.println(fault ? 1 : 0);
+      file.close();
+      Serial.println("SD Logged");
+    } else {
+      Serial.println("SD Write Error");
+    }
+
+    // -------- LCD Display --------
+    lcd.clear();
+
+if (millis() - pageTimer > pageInterval) {
+  pageTimer = millis();
+  lcdPage++;
+  if (lcdPage > 2) lcdPage = 0;   // 3 pages: 0,1,2
+}
+
+lcd.clear();
+
+if (lcdPage == 0) {
+  // -------- Page 1 --------
+  lcd.setCursor(0,0);
+  lcd.print("T:"); lcd.print(temperature);
+  lcd.print(" P:"); lcd.print(pressure);
+
+  lcd.setCursor(0,1);
+  lcd.print("HR:"); lcd.print(heartRate);
+  lcd.print(" S:"); lcd.print(spo2);
+}
+
+else if (lcdPage == 1) {
+  // -------- Page 2 (Accelerometer) --------
+  lcd.setCursor(0,0);
+  lcd.print("AX:"); lcd.print(ax);
+  lcd.print(" AY:"); lcd.print(ay);
+
+  lcd.setCursor(0,1);
+  lcd.print("AZ:"); lcd.print(az);
+}
+
+else if (lcdPage == 2) {
+  // -------- Page 3 (Gyroscope) --------
+  lcd.setCursor(0,0);
+  lcd.print("GX:"); lcd.print(gx);
+  lcd.print(" GY:"); lcd.print(gy);
+
+  lcd.setCursor(0,1);
+  lcd.print("GZ:"); lcd.print(gz);
+}
+}
 }
