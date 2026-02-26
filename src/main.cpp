@@ -22,11 +22,16 @@ const unsigned long publishInterval = 2000;
 
 unsigned long pageTimer = 0;
 const unsigned long pageInterval = 2000;
+
+// ---------------- Variables ----------------
 uint8_t lcdPage = 0;
+int temperature = 0, pressure = 0;
+int heartRate = 0, spo2 = 0;
+int16_t ax, ay, az, gx, gy, gz;
 
 void setup() {
 
-    Serial.begin(115200);
+    Serial.begin(9600);
     Wire.begin(21, 22);   // ESP32 I2C
 
     Serial.println("\nSystem Booting...");
@@ -68,12 +73,12 @@ void loop() {
         lastPublish = currentMillis;
 
         // -------- Read Sensors --------
-        int temperature = readTemperature();
-        int pressure    = readPressure();
-        int heartRate   = getHeartRate();
-        int spo2        = getSpO2();
+     temperature = readTemperature();
+     pressure    = readPressure();
+     heartRate   = getHeartRate();
+     spo2        = getSpO2();
 
-        int16_t ax, ay, az, gx, gy, gz;
+        
         readMPU(ax, ay, az, gx, gy, gz);
 
         // -------- Fault Detection --------
@@ -94,7 +99,7 @@ void loop() {
         Serial.println(fault ? 1 : 0);
 
         // -------- MQTT JSON Publish --------
-        StaticJsonDocument<512> doc;
+        JsonDocument doc;
 
         doc["temperature"] = temperature;
         doc["pressure"] = pressure;
@@ -125,10 +130,11 @@ void loop() {
         if (lcdPage > 2) lcdPage = 0;
 
         updateLCDPage(lcdPage,
-                      readTemperature(),
-                      readPressure(),
-                      getHeartRate(),
-                      getSpO2(),
-                      0,0,0,0,0,0);   // Simplified for page update
+              temperature,
+              pressure,
+              heartRate,
+              spo2,
+              ax, ay, az,
+              gx, gy, gz);
     }
 }

@@ -26,14 +26,18 @@ void updateLCDPage(uint8_t page,
     }
     else if (page == 1) {
         lcd.setCursor(0,0);
-        lcd.print("AX:"); lcd.print(ax);
+        lcd.print("Accl: X:"); lcd.print(ax);
         lcd.setCursor(0,1);
-        lcd.print("AY:"); lcd.print(ay);
+        lcd.print(" Y:"); lcd.print(ay);
+        lcd.setCursor(0,1);
+        lcd.print(" Z:"); lcd.print(az);
     }
     else if (page == 2) {
         lcd.setCursor(0,0);
-        lcd.print("GX:"); lcd.print(gx);
+        lcd.print("Gyro: X:"); lcd.print(gx);
         lcd.setCursor(0,1);
-        lcd.print("GY:"); lcd.print(gy);
+        lcd.print(" Y:"); lcd.print(gy);
+        lcd.setCursor(0,1);
+        lcd.print(" Z:"); lcd.print(gz);
     }
 }
