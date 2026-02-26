@@ -29,7 +29,6 @@ void updateLCDPage(uint8_t page,
         lcd.print("Accl: X:"); lcd.print(ax);
         lcd.setCursor(0,1);
         lcd.print(" Y:"); lcd.print(ay);
-        lcd.setCursor(0,1);
         lcd.print(" Z:"); lcd.print(az);
     }
     else if (page == 2) {
@@ -37,7 +36,6 @@ void updateLCDPage(uint8_t page,
         lcd.print("Gyro: X:"); lcd.print(gx);
         lcd.setCursor(0,1);
         lcd.print(" Y:"); lcd.print(gy);
-        lcd.setCursor(0,1);
         lcd.print(" Z:"); lcd.print(gz);
     }
 }

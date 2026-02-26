@@ -1,11 +1,10 @@
-git add .
-git commit -m 'All in one'
-git push
-
-
 
 Project structure:
 tree /f > project_structure.txt
 
 Get-ChildItem -Recurse -File > file_list.txt
 Get-ChildItem -Recurse -File | Select-Object -ExpandProperty Name > file_list.txt
+
+echo Project_RTOS_Logger/ > project_structure.txt
+tree src /f /a >> project_structure.txt
+tree include /f /a >> project_structure.txt
